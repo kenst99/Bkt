@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Lập Bảng Kê Thuế - Phế Liệu Trung Hiếu</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS (đọc file Excel) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- ExcelJS (xuất file Excel định dạng cao cấp) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom print area */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #print-area, #print-area * {
+                visibility: visible;
+            }
+            #print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                box-shadow: none;
+                border: none;
+                padding: 0;
+                margin: 0;
+            }
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-emerald-800 to-teal-900 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3.5 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/10 p-2 rounded-xl border border-white/10">
+                    <i data-lucide="file-spreadsheet" class="w-7 h-7 text-emerald-300"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg sm:text-xl tracking-wide flex items-center gap-2">
+                        PHẾ LIỆU TRUNG HIẾU 
+                        <span class="text-xs bg-emerald-500/30 border border-emerald-400/20 text-emerald-300 px-2.5 py-0.5 rounded-full font-normal">Phiên bản 2.1 - Bảo mật</span>
+                    </h1>
+                    <p class="text-xs text-emerald-100 flex items-center gap-1">
+                        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-300"></i>
+                        Hệ thống tự động lọc & bảo mật thông tin nội bộ
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="bg-emerald-700/50 border border-emerald-600/30 text-emerald-100 px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5">
+                    <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                    Mã hóa Ghi chú tối ưu
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Panel: Controls (5 cols) -->
+        <div class="lg:col-span-5 flex flex-col gap-6">
+            
+            <!-- Upload Card -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md">
+                <h3 class="font-semibold text-slate-900 mb-3 flex items-center gap-2 text-sm uppercase tracking-wider text-slate-500">
+                    <i data-lucide="upload-cloud" class="w-5 h-5 text-emerald-600"></i>
+                    1. Nguồn dữ liệu đầu vào
+                </h3>
+                
+                <div id="drop-zone" class="border-2 border-dashed border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/10 rounded-2xl p-6 text-center cursor-pointer transition-all relative">
+                    <input type="file" id="file-upload" class="hidden" accept=".xlsx, .xls, .csv">
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="p-3 bg-emerald-50 text-emerald-600 rounded-full">
+                            <i data-lucide="file-up" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-slate-700 block text-sm">Tải lên file PHẾ LIỆU TRUNG HIẾU</span>
+                            <span class="text-xs text-slate-400">Kéo thả file vào đây hoặc click để duyệt file</span>
+                        </div>
+                        <span class="text-[10px] text-slate-400 bg-slate-100 px-2.5 py-1 rounded-md">Chứa các sheet: "NHẬP - XUẤT - TỒN" & "KHÁCH HÀNG"</span>
+                    </div>
+                </div>
+
+                <!-- File Info Indicator -->
+                <div id="file-info" class="mt-4 p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl flex items-center justify-between hidden">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <i data-lucide="check-check" class="w-5 h-5 text-emerald-600 flex-shrink-0"></i>
+                        <div class="min-w-0">
+                            <p id="uploaded-file-name" class="font-semibold text-xs text-slate-800 truncate">PHE_LIEU_TRUNG_HIEU.xlsx</p>
+                            <p id="uploaded-file-details" class="text-[10px] text-emerald-700 font-medium">Lọc thành công dữ liệu từ file</p>
+                        </div>
+                    </div>
+                    <button onclick="resetToMockData()" class="text-xs text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-50 rounded-lg transition-colors" title="Gỡ file, khôi phục dữ liệu demo">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Configurations & Filter Card -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4">
+                <h3 class="font-semibold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100 text-sm uppercase tracking-wider text-slate-500">
+                    <i data-lucide="sliders" class="w-5 h-5 text-emerald-600"></i>
+                    2. Cấu hình bảo mật & thời gian
+                </h3>
+
+                <!-- NEW: Toggle Show/Hide Notes (MẶC ĐỊNH LÀ ẨN) -->
+                <div class="bg-emerald-50/50 border border-emerald-100 p-3.5 rounded-xl flex items-center justify-between transition-all">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="p-2 bg-emerald-600 text-white rounded-lg" id="notes-icon-wrapper">
+                            <i data-lucide="eye-off" class="w-4 h-4" id="notes-icon"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <span class="text-xs font-bold text-slate-800 block">Nội dung Ghi chú (Cột 10)</span>
+                            <span class="text-[10px] text-slate-500 block leading-tight" id="notes-status-text">Đang ẨN bảo mật khi xem/xuất</span>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="show-notes-toggle" class="sr-only peer" onchange="toggleNotesVisibility()">
+                        <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                </div>
+
+                <!-- Quick Date Dropdown -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5">Chọn nhanh theo Tháng</label>
+                    <div class="relative">
+                        <select id="quick-month-select" onchange="handleQuickMonthChange(this.value)" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 bg-slate-50 hover:bg-slate-100 outline-none font-medium cursor-pointer appearance-none">
+                            <option value="">-- Chọn Tháng báo cáo thuế --</option>
+                            <option value="2026-01">Tháng 01 / 2026</option>
+                            <option value="2026-02" selected>Tháng 02 / 2026 (Dữ liệu mẫu)</option>
+                            <option value="2026-03">Tháng 03 / 2026</option>
+                            <option value="2026-04">Tháng 04 / 2026</option>
+                            <option value="2026-05">Tháng 05 / 2026</option>
+                            <option value="2026-06">Tháng 06 / 2026</option>
+                            <option value="2026-07">Tháng 07 / 2026</option>
+                            <option value="2026-08">Tháng 08 / 2026</option>
+                            <option value="2026-09">Tháng 09 / 2026</option>
+                            <option value="2026-10">Tháng 10 / 2026</option>
+                            <option value="2026-11">Tháng 11 / 2026</option>
+                            <option value="2026-12">Tháng 12 / 2026</option>
+                            <option value="all">Tất cả thời gian</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                            <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Range Outputs -->
+                <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <div>
+                        <span class="text-[10px] text-slate-500 font-semibold uppercase block mb-1">Từ ngày</span>
+                        <input type="date" id="start-date" class="w-full text-xs border border-slate-200 rounded-lg p-2 bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none">
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-500 font-semibold uppercase block mb-1">Đến ngày</span>
+                        <input type="date" id="end-date" class="w-full text-xs border border-slate-200 rounded-lg p-2 bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none">
+                    </div>
+                </div>
+
+                <!-- Exclude keyword settings -->
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="block text-xs font-semibold text-slate-600">Bộ lọc nguồn (Loại trừ các dòng chứa từ này)</label>
+                        <span class="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded font-medium">Bản ghi loại trừ khỏi dữ liệu</span>
+                    </div>
+                    <div class="relative">
+                        <input type="text" id="exclude-keywords" value="Tien Mat, Tiền mặt, TM, TT" class="w-full text-xs border border-slate-200 rounded-lg pl-8 pr-3 py-2.5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none font-medium" placeholder="Từ khóa ngăn cách bằng dấu phẩy">
+                        <i data-lucide="filter-x" class="w-4 h-4 text-slate-400 absolute left-2.5 top-3"></i>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1">Hệ thống sẽ lọc loại bỏ hoàn toàn các giao dịch chứa các chữ này trước khi xử lý.</p>
+                </div>
+
+                <!-- Enterprise Details collapsible panel -->
+                <details class="bg-slate-50 rounded-xl border border-slate-100 group">
+                    <summary class="p-3 text-xs font-semibold text-slate-700 cursor-pointer select-none flex justify-between items-center hover:bg-slate-100/50 rounded-xl list-none">
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="building" class="w-4 h-4 text-emerald-600"></i>
+                            Thông tin doanh nghiệp in tiêu đề
+                        </span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5 transition-transform group-open:rotate-90"></i>
+                    </summary>
+                    <div class="p-3 pt-0 grid grid-cols-1 gap-2.5 text-xs border-t border-slate-200/40">
+                        <div>
+                            <span class="text-[10px] text-slate-400 block mb-0.5">Tên doanh nghiệp</span>
+                            <input type="text" id="company-name" value="CTY TNHH TM VTT TRUNG HIẾU" class="w-full bg-white border border-slate-200 rounded-md p-1.5 text-xs font-medium focus:border-emerald-500 outline-none">
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="col-span-2">
+                                <span class="text-[10px] text-slate-400 block mb-0.5">Địa chỉ</span>
+                                <input type="text" id="company-address" value="13-14 đường số 08 KDC 5A, P. Phú Lợi, TP. Sóc Trăng" class="w-full bg-white border border-slate-200 rounded-md p-1.5 text-xs focus:border-emerald-500 outline-none">
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-slate-400 block mb-0.5">MST</span>
+                                <input type="text" id="company-tax" value="2200208369" class="w-full bg-white border border-slate-200 rounded-md p-1.5 text-xs font-medium focus:border-emerald-500 outline-none">
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 block mb-0.5">Nơi thu mua</span>
+                            <input type="text" id="purchase-address" value="337 Bạch Đằng, P. Phú Lợi, TP. Sóc Trăng" class="w-full bg-white border border-slate-200 rounded-md p-1.5 text-xs focus:border-emerald-500 outline-none">
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- Customer Selection Checklist Card -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-[350px]">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-semibold text-slate-900 flex items-center gap-2 text-sm uppercase tracking-wider text-slate-500">
+                        <i data-lucide="users-round" class="w-5 h-5 text-emerald-600"></i>
+                        3. Danh sách Khách hàng
+                    </h3>
+                    <span id="selected-count" class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full">0/0</span>
+                </div>
+
+                <!-- Search box -->
+                <div class="relative mb-3">
+                    <input type="text" id="customer-search" class="w-full text-xs border border-slate-200 rounded-lg pl-8 pr-3 py-2.5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none" placeholder="Tìm kiếm tên khách hàng...">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-2.5 top-3"></i>
+                </div>
+
+                <!-- Selection Action Panel -->
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <button onclick="toggleAllCustomers(true)" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold p-2 rounded-lg flex items-center justify-center gap-1 transition-colors">
+                        <i data-lucide="check-square" class="w-3.5 h-3.5 text-slate-500"></i> Chọn tất cả
+                    </button>
+                    <button onclick="toggleAllCustomers(false)" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold p-2 rounded-lg flex items-center justify-center gap-1 transition-colors">
+                        <i data-lucide="square" class="w-3.5 h-3.5 text-slate-500"></i> Bỏ chọn tất cả
+                    </button>
+                    
+                    <button onclick="selectActiveCustomersOnly()" class="col-span-2 text-[11px] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold p-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-sm" title="Tự động chọn khách hàng có dòng dữ liệu và bỏ chọn khách 0 dòng">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-emerald-600"></i>
+                        Chỉ chọn các khách có mua (>0 dòng)
+                    </button>
+                </div>
+
+                <!-- Scrollable Checklist container -->
+                <div class="flex-1 overflow-y-auto max-h-[280px] border border-slate-100 rounded-xl divide-y divide-slate-100 bg-slate-50/50" id="customer-list-container">
+                    <div class="p-8 text-center text-slate-400 text-xs italic">Chưa tải dữ liệu khách hàng</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Panel: Live Preview & Export Action (7 cols) -->
+        <div class="lg:col-span-7 flex flex-col gap-6">
+            
+            <!-- Quick Action Toolbar -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Xem trước:</span>
+                    <select id="preview-customer-select" onchange="changePreviewCustomer(this.value)" class="text-xs border border-slate-200 rounded-lg p-2.5 focus:border-emerald-500 outline-none font-bold bg-slate-50 text-slate-700 w-full sm:min-w-[180px]">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <button onclick="printCurrentReport()" class="flex-1 sm:flex-initial bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors">
+                        <i data-lucide="printer" class="w-4 h-4"></i> In trang này
+                    </button>
+                    <button onclick="exportExcelReport()" class="flex-[2] sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/10 transition-all hover:-translate-y-0.5">
+                        <i data-lucide="download-cloud" class="w-4 h-4"></i>
+                        Xuất File Excel Thuế
+                    </button>
+                </div>
+            </div>
+
+            <!-- Paper Simulator Card -->
+            <div class="bg-white rounded-2xl shadow-md border border-slate-100 overflow-hidden flex flex-col">
+                <div class="bg-slate-50 border-b border-slate-100 px-5 py-3 flex justify-between items-center">
+                    <span class="text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        BẢN IN XEM TRƯỚC (FORM CHUẨN CỦA THUẾ)
+                    </span>
+                    <span class="text-[10px] text-slate-400 bg-white border border-slate-200 px-2 py-0.5 rounded-md font-mono font-semibold" id="preview-sheet-name">SHEET: ...</span>
+                </div>
+
+                <!-- Paper Simulation Environment -->
+                <div class="p-6 overflow-x-auto bg-slate-200 flex justify-center">
+                    
+                    <!-- Paper sheet (A4 simulate size width: 830px) -->
+                    <div id="print-area" class="w-[830px] min-h-[1050px] bg-white p-10 shadow-xl border border-slate-300 text-black text-xs shrink-0 select-text">
+                        
+                        <!-- Header Company block -->
+                        <div class="flex justify-between items-start mb-6 font-semibold">
+                            <div class="max-w-[70%] leading-relaxed text-[11px]">
+                                <p class="text-xs uppercase tracking-tight">Tên doanh nghiệp: <span class="preview-txt" data-key="company-name">CTY TNHH TM VTT TRUNG HIẾU</span></p>
+                                <p class="text-[11px] text-slate-700 font-normal">Địa chỉ: <span class="preview-txt" data-key="company-address">13-14 đường số 08 KDC 5A, P. Phú Lợi, TP. Sóc Trăng</span></p>
+                                <p class="text-[11px] text-slate-700 font-normal">Địa chỉ tổ chức thu mua: <span class="preview-txt" data-key="purchase-address">337 Bạch Đằng, P. Phú Lợi, TP. Sóc Trăng</span></p>
+                                <p class="text-[11px] text-slate-700 font-normal">Người phụ trách thu mua: .......................................................................................................</p>
+                            </div>
+                            <div class="text-right whitespace-nowrap text-[11px]">
+                                <p class="text-xs">Mã số thuế: <span class="preview-txt" data-key="company-tax">2200208369</span></p>
+                            </div>
+                        </div>
+
+                        <!-- Template Title block -->
+                        <div class="text-center mb-6">
+                            <h2 class="text-base font-bold uppercase tracking-wide leading-normal">BẢNG KÊ THU MUA HÀNG HÓA, DỊCH VỤ<br>MUA VÀO KHÔNG CÓ HÓA ĐƠN</h2>
+                            <p class="italic text-[11px] mt-1 text-slate-700" id="preview-date-label">(Ngày ……. tháng …… năm ..…)</p>
+                        </div>
+
+                        <!-- Main standard data table -->
+                        <table class="w-full table-fixed border-collapse border border-black mb-6 text-[11px] tracking-tight">
+                            <thead>
+                                <tr>
+                                    <th class="border border-black p-1 text-center w-[11%] font-semibold" rowspan="2">Ngày tháng năm mua hàng</th>
+                                    <th class="border border-black p-1 text-center w-[37%] font-semibold" colspan="4">Người bán</th>
+                                    <th class="border border-black p-1 text-center w-[42%] font-semibold" colspan="4">Hàng hóa mua vào</th>
+                                    <th class="border border-black p-1 text-center w-[10%] font-semibold" rowspan="2">Ghi chú</th>
+                                </tr>
+                                <tr class="bg-slate-50">
+                                    <th class="border border-black p-1 text-center font-normal">Tên người bán</th>
+                                    <th class="border border-black p-1 text-center font-normal w-[22%]">Địa chỉ</th>
+                                    <th class="border border-black p-1 text-center font-normal w-[25%]">Số CCCD (STK)</th>
+                                    <th class="border border-black p-1 text-center font-normal w-[16%]">Số điện thoại</th>
+                                    <th class="border border-black p-1 text-center font-normal">Tên hàng hóa, dịch vụ</th>
+                                    <th class="border border-black p-1 text-center font-normal w-[15%]">Số lượng, trọng lượng</th>
+                                    <th class="border border-black p-1 text-center font-normal w-[14%]">Đơn giá</th>
+                                    <th class="border border-black p-1 text-center font-normal w-[20%]">Tổng giá thanh toán</th>
+                                </tr>
+                                <tr class="bg-slate-100 text-[9px] italic">
+                                    <th class="border border-black p-0.5 text-center font-normal">1</th>
+                                    <th class="border border-black p-0.5 text-center font-normal">2</th>
+                                    <th class="border border-black p-0.5 text-center font-normal">3</th>
+                                    <th class="border border-black p-0.5 text-center font-normal">4</th>
+                                    <th class="border border-black p-0.5 text-center font-normal">5</th>
+                                    <th class="border border-black p-0.5 text-center font-normal">6</th>
+                                    <th class="border border-black p-0.5 text-center font-normal">7</th>
+                                    <th class="border border-black p-0.5 text-center font-normal">8</th>
+                                    <th class="border border-black p-0.5 text-center font-normal">9</th>
+                                    <th class="border border-black p-0.5 text-center font-normal">10</th>
+                                </tr>
+                            </thead>
+                            <tbody id="preview-table-body">
+                                <!-- Populated programmatically -->
+                            </tbody>
+                            <tfoot>
+                                <!-- Totals -->
+                                <tr class="font-bold bg-slate-50">
+                                    <td class="border border-black p-1.5 text-center" colspan="6">Tổng giá trị hàng hóa mua vào:</td>
+                                    <td class="border border-black p-1.5 text-right font-mono" id="preview-total-qty">0</td>
+                                    <td class="border border-black p-1.5 bg-slate-100/50"></td>
+                                    <td class="border border-black p-1.5 text-right font-mono" id="preview-total-sum">0</td>
+                                    <td class="border border-black p-1.5"></td>
+                                </tr>
+                                <!-- Words translated values -->
+                                <tr class="italic font-medium">
+                                    <td class="border border-black p-2.5 text-left" colspan="10">
+                                        Bằng chữ: <span id="preview-total-in-words" class="not-italic font-bold text-slate-800">Không đồng.</span>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+
+                        <!-- Tax requirements footer -->
+                        <div class="text-[10px] text-gray-500 leading-relaxed space-y-1 mb-8 border-l-2 border-slate-300 pl-3">
+                            <p class="font-semibold">Ghi chú:</p>
+                            <p>- Căn cứ vào số thực tế các hàng hóa, dịch vụ mà doanh nghiệp mua của người bán không có hóa đơn, lập bảng kê khai theo thứ tự thời gian mua, doanh nghiệp ghi đầy đủ các chỉ tiêu trên bảng kê, tổng hợp bảng kê hàng tháng.</p>
+                            <p>- Đối với doanh nghiệp có tổ chức các trạm thu mua ở nhiều nơi thì từng trạm thu mua phải lập từng bảng kê riêng. Doanh nghiệp lập bảng kê tổng hợp chung của các trạm.</p>
+                        </div>
+
+                        <!-- Hand Signatures blocks -->
+                        <div class="grid grid-cols-2 text-center mt-12 text-[11px] tracking-wide">
+                            <div class="flex flex-col items-center">
+                                <p class="font-bold uppercase">Người lập bảng kê</p>
+                                <p class="italic text-gray-500 mt-0.5">(Ký, ghi rõ họ tên)</p>
+                                <div class="h-20"></div>
+                                <p class="font-semibold text-gray-400">....................................................</p>
+                            </div>
+                            <div class="flex flex-col items-center">
+                                <p class="italic text-gray-500 mb-0.5" id="preview-sign-date-label">Ngày …. tháng …. năm ….....</p>
+                                <p class="font-bold uppercase">Giám đốc doanh nghiệp</p>
+                                <p class="italic text-gray-500 mt-0.5">(Ký tên, đóng dấu)</p>
+                                <div class="h-20"></div>
+                                <p class="font-bold uppercase text-emerald-800">CTY TNHH TM VTT TRUNG HIẾU</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- App Process Logic -->
+    <script>
+        // Global Datastores
+        let dbRows = []; 
+        let clientDirectory = {}; 
+        let activeCustomer = null; 
+        let availableCustomersList = []; 
+        let showNotes = false; // Mặc định ẩn ghi chú khi tải trang và xem trước/xuất file
+
+        // Live Demo Built-in Mock dataset
+        const mockClients = {
+            "a Thanh": { stk: "1027224219", bank: "VCB", phone: "0912416452", note: "TRẦN MINH THANH" },
+            "Bui Thi Bach Ngoc": { stk: "070085903381", bank: "SacomBank", phone: "0912416452", note: "" },
+            "Ca Hoàng Tuấn": { stk: "103874224616", bank: "Vietinbank", phone: "0984433292", note: "" },
+            "Chau Duc Loi": { stk: "070072625119", bank: "SacomBank", phone: "0984433292", note: "" },
+            "Nguyen Van Tuan": { stk: "050012345678", bank: "Agribank", phone: "0911223344", note: "" },
+            "Khach Hang Dem 01": { stk: "", bank: "", phone: "", note: "" }
+        };
+
+        const mockTransactions = [
+            { date: "2026-02-11", type: "NHẬP", customer: "a Thanh", item: "Sắt đặc", qty: 3030, price: 7500, total: 22725000, note: "Tien Mat da TT" }, // bị lọc bởi bộ lọc từ khóa loại trừ
+            { date: "2026-02-11", type: "NHẬP", customer: "a Thanh", item: "Lon phế liệu", qty: 190, price: 3300, total: 627000, note: "Chuyển khoản VCB" },
+            { date: "2026-02-11", type: "NHẬP", customer: "a Thanh", item: "Sắt sô", qty: 2280, price: 7500, total: 17100000, note: "Ck Techcombank" },
+            { date: "2026-02-12", type: "NHẬP", customer: "a Thanh", item: "Sắt đặc", qty: 3300, price: 7600, total: 25080000, note: "Giao dịch qua Vietcombank" },
+            { date: "2026-02-11", type: "NHẬP", customer: "Ca Hoàng Tuấn", item: "Sắt sô", qty: 53448, price: 8000, total: 427584000, note: "Chuyển khoản Vietin" },
+            { date: "2026-02-12", type: "NHẬP", customer: "Ca Hoàng Tuấn", item: "Tole cũ", qty: 8272, price: 5500, total: 45496000, note: "Thanh toán bằng CK" },
+            { date: "2026-02-15", type: "NHẬP", customer: "Bui Thi Bach Ngoc", item: "Sắt sô", qty: 12000, price: 7800, total: 93600000, note: "Chuyển khoản Sacom" },
+            { date: "2026-02-18", type: "NHẬP", customer: "Bui Thi Bach Ngoc", item: "Lon phế liệu", qty: 1500, price: 3500, total: 5250000, note: "Giao dịch không hóa đơn" },
+            { date: "2026-02-23", type: "NHẬP", customer: "a Thanh", item: "Sắt sô", qty: 2460, price: 7700, total: 18942000, note: "Tien Mat da TT" }, // bị lọc bởi bộ lọc từ khóa loại trừ
+            { date: "2026-03-05", type: "NHẬP", customer: "Chau Duc Loi", item: "Sắt sô", qty: 4500, price: 8000, total: 36000000, note: "Nộp ngân hàng" }
+        ];
+
+        // Bootstrapping
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            initInteractiveEvents();
+            loadDefaultMock();
+        });
+
+        function initInteractiveEvents() {
+            // Drag Drop files
+            const dropZone = document.getElementById('drop-zone');
+            const fileUpload = document.getElementById('file-upload');
+
+            dropZone.addEventListener('click', () => fileUpload.click());
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-emerald-500', 'bg-emerald-50/20');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('border-emerald-500', 'bg-emerald-50/20');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-emerald-500', 'bg-emerald-50/20');
+                if (e.dataTransfer.files.length) {
+                    parseExcelFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            fileUpload.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    parseExcelFile(e.target.files[0]);
+                }
+            });
+
+            // Mirror enterprise titles
+            const fields = ['company-name', 'company-address', 'company-tax', 'purchase-address'];
+            fields.forEach(f => {
+                const input = document.getElementById(f);
+                input.addEventListener('input', () => {
+                    document.querySelectorAll(`.preview-txt[data-key="${f}"]`).forEach(span => {
+                        span.textContent = input.value;
+                    });
+                });
+            });
+
+            // Filtering recalculations
+            document.getElementById('start-date').addEventListener('change', triggerReloadUI);
+            document.getElementById('end-date').addEventListener('change', triggerReloadUI);
+            document.getElementById('exclude-keywords').addEventListener('input', triggerReloadUI);
+            document.getElementById('customer-search').addEventListener('input', filterChecklistSearch);
+        }
+
+        // TỔNG HỢP: Hàm Toggle hiển thị ghi chú
+        function toggleNotesVisibility() {
+            const toggle = document.getElementById('show-notes-toggle');
+            showNotes = toggle.checked;
+
+            // Cập nhật giao diện Trạng thái công tắc
+            const statusText = document.getElementById('notes-status-text');
+            const iconWrapper = document.getElementById('notes-icon-wrapper');
+            const iconElement = document.getElementById('notes-icon');
+
+            if (showNotes) {
+                statusText.textContent = "Đang HIỆN cột Ghi chú trên bản in/Excel";
+                statusText.classList.remove('text-slate-500');
+                statusText.classList.add('text-emerald-700', 'font-semibold');
+                
+                iconWrapper.classList.remove('bg-emerald-600');
+                iconWrapper.classList.add('bg-amber-500');
+                iconElement.setAttribute('data-lucide', 'eye');
+            } else {
+                statusText.textContent = "Đang ẨN bảo mật khi xem/xuất";
+                statusText.classList.remove('text-emerald-700', 'font-semibold');
+                statusText.classList.add('text-slate-500');
+
+                iconWrapper.classList.remove('bg-amber-500');
+                iconWrapper.classList.add('bg-emerald-600');
+                iconElement.setAttribute('data-lucide', 'eye-off');
+            }
+            
+            // Re-render icon
+            lucide.createIcons();
+
+            // Làm mới bản xem trước (Live Preview)
+            renderPreviewSheet();
+        }
+
+        // Handle Change in Quick Month Selection
+        function handleQuickMonthChange(val) {
+            const startInput = document.getElementById('start-date');
+            const endInput = document.getElementById('end-date');
+
+            if (!val) return;
+            
+            if (val === 'all') {
+                startInput.value = '';
+                endInput.value = '';
+            } else {
+                const [year, month] = val.split('-');
+                const firstDay = `${year}-${month}-01`;
+                const lastDay = new Date(year, parseInt(month), 0).getDate();
+                const endDay = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+                
+                startInput.value = firstDay;
+                endInput.value = endDay;
+            }
+
+            triggerReloadUI();
+        }
+
+        // Setup base demo state
+        function loadDefaultMock() {
+            dbRows = JSON.parse(JSON.stringify(mockTransactions));
+            clientDirectory = JSON.parse(JSON.stringify(mockClients));
+            
+            // Set init dropdown and inputs
+            document.getElementById('quick-month-select').value = "2026-02";
+            document.getElementById('start-date').value = "2026-02-01";
+            document.getElementById('end-date').value = "2026-02-28";
+            
+            // Mặc định checkbox tắt
+            document.getElementById('show-notes-toggle').checked = false;
+            showNotes = false;
+
+            processDataState(true);
+        }
+
+        // Remove upload file and reset to default
+        function resetToMockData() {
+            document.getElementById('file-upload').value = '';
+            document.getElementById('file-info').classList.add('hidden');
+            loadDefaultMock();
+        }
+
+        // Parsing algorithms
+        function parseExcelFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                try {
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    
+                    let importSheet = null;
+                    let customerSheet = null;
+
+                    // Match custom sheet signatures
+                    workbook.SheetNames.forEach(name => {
+                        const norm = name.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").trim();
+                        if (norm.includes('NHAP - XUAT - TON') || norm.includes('NHAP-XUAT-TON') || norm.includes('TON TONG') || name.includes('NHẬP')) {
+                            importSheet = workbook.Sheets[name];
+                        }
+                        if (norm.includes('KHACH HANG') || norm.includes('DANH SACH KHACH') || name.includes('KHÁCH')) {
+                            customerSheet = workbook.Sheets[name];
+                        }
+                    });
+
+                    // Fallbacks to default indexing
+                    if (!importSheet) importSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    if (!customerSheet && workbook.SheetNames.length > 1) {
+                        workbook.SheetNames.forEach(name => {
+                            if (workbook.Sheets[name] !== importSheet) customerSheet = workbook.Sheets[name];
+                        });
+                    }
+
+                    // Extract Clients
+                    clientDirectory = {};
+                    if (customerSheet) {
+                        const jsonCusts = XLSX.utils.sheet_to_json(customerSheet, { header: 1 });
+                        if (jsonCusts.length > 0) {
+                            let headers = jsonCusts[0].map(h => String(h || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").trim());
+                            let nameIdx = headers.findIndex(h => h.includes('TEN') || h === 'KHACH HANG');
+                            let stkIdx = headers.findIndex(h => h.includes('STK') || h.includes('SO TAI KHOAN') || h.includes('CCCD'));
+                            let bankIdx = headers.findIndex(h => h.includes('NGAN HANG'));
+                            
+                            if (nameIdx === -1) nameIdx = 0;
+                            if (stkIdx === -1) stkIdx = 1;
+                            if (bankIdx === -1) bankIdx = 2;
+
+                            for (let i = 1; i < jsonCusts.length; i++) {
+                                const row = jsonCusts[i];
+                                if (row && row[nameIdx]) {
+                                    const cName = String(row[nameIdx]).trim();
+                                    clientDirectory[cName] = {
+                                        stk: row[stkIdx] ? String(row[stkIdx]).trim() : '',
+                                        bank: row[bankIdx] ? String(row[bankIdx]).trim() : '',
+                                        phone: ''
+                                    };
+                                }
+                            }
+                        }
+                    }
+
+                    // Extract Import Transactions
+                    dbRows = [];
+                    if (importSheet) {
+                        const jsonData = XLSX.utils.sheet_to_json(importSheet, { header: 1 });
+                        let headerIdx = 0;
+                        
+                        // Detect first containing header rows
+                        for (let r = 0; r < Math.min(15, jsonData.length); r++) {
+                            const cells = jsonData[r].map(c => String(c || '').toUpperCase().trim());
+                            if (cells.includes('NGÀY') || cells.includes('TÊN KHÁCH') || cells.includes('MẶT HÀNG')) {
+                                headerIdx = r;
+                                break;
+                            }
+                        }
+
+                        const rawHeaders = jsonData[headerIdx];
+                        const headers = rawHeaders.map(h => String(h || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").trim());
+                        
+                        let dateIdx = headers.findIndex(h => h === 'NGAY');
+                        let typeIdx = headers.findIndex(h => h === 'LOAI');
+                        let custIdx = headers.findIndex(h => h.includes('TEN KHACH') || h.includes('KHACH HANG'));
+                        let itemIdx = headers.findIndex(h => h.includes('MAT HANG') || h.includes('TEN HANG'));
+                        let qtyIdx = headers.findIndex(h => h.includes('KL THUC') || h === 'KL' || h.includes('KHOI LUONG') || h.includes('KL HANG'));
+                        let priceIdx = headers.findIndex(h => h.includes('DON GIA'));
+                        let totalIdx = headers.findIndex(h => h.includes('THANH TIEN') || h === 'CHI' || h === 'THU' || h.includes('TONG CONG'));
+                        let noteIdx = headers.findIndex(h => h.includes('GHI CHU') || h === 'GHI_CHU');
+
+                        // Fallback indices
+                        if (dateIdx === -1) dateIdx = 0;
+                        if (typeIdx === -1) typeIdx = 1;
+                        if (custIdx === -1) custIdx = 2;
+                        if (itemIdx === -1) itemIdx = 3;
+                        if (qtyIdx === -1) qtyIdx = 6;
+                        if (priceIdx === -1) priceIdx = 7;
+                        if (totalIdx === -1) totalIdx = 8;
+                        if (noteIdx === -1) noteIdx = headers.length - 1;
+
+                        for (let i = headerIdx + 1; i < jsonData.length; i++) {
+                            const row = jsonData[i];
+                            if (!row || !row[custIdx]) continue;
+
+                            const rawDate = row[dateIdx];
+                            let formattedDate = '';
+                            if (rawDate) {
+                                if (rawDate instanceof Date) {
+                                    formattedDate = rawDate.toISOString().split('T')[0];
+                                } else if (typeof rawDate === 'number') {
+                                    const d = new Date((rawDate - 25569) * 86400 * 1000);
+                                    formattedDate = d.toISOString().split('T')[0];
+                                } else {
+                                    formattedDate = String(rawDate).trim();
+                                    const parts = formattedDate.split(/[-/]/);
+                                    if (parts.length === 3 && parts[2].length === 4) {
+                                        formattedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                    }
+                                }
+                            }
+
+                            const rawQty = parseFloat(String(row[qtyIdx]).replace(/,/g, '')) || 0;
+                            const rawPrice = parseFloat(String(row[priceIdx]).replace(/,/g, '')) || 0;
+                            const calculatedTotal = parseFloat(String(row[totalIdx] || '').replace(/,/g, '')) || (rawQty * rawPrice);
+
+                            dbRows.push({
+                                date: formattedDate,
+                                type: String(row[typeIdx] || 'NHẬP').trim(),
+                                customer: String(row[custIdx]).trim(),
+                                item: String(row[itemIdx] || 'Phế liệu').trim(),
+                                qty: rawQty,
+                                price: rawPrice,
+                                total: calculatedTotal,
+                                note: String(row[noteIdx] || '').trim()
+                            });
+                        }
+                    }
+
+                    // Populate dynamically generated months in Quick Select selector
+                    populateDataMonths(dbRows);
+
+                    // Show visual success cues
+                    document.getElementById('uploaded-file-name').textContent = file.name;
+                    document.getElementById('uploaded-file-details').textContent = `${dbRows.length} dòng mua bán • ${Object.keys(clientDirectory).length} khách`;
+                    document.getElementById('file-info').classList.remove('hidden');
+
+                    processDataState(true);
+
+                } catch (err) {
+                    console.error(err);
+                    alert("Không thể giải mã cấu trúc Excel. Vui lòng tải file chuẩn chứa sheet NHẬP - XUẤT - TỒN.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Extract available months from database and construct dynamic quick options
+        function populateDataMonths(rows) {
+            const select = document.getElementById('quick-month-select');
+            
+            // Get unique Months e.g., "2026-02", "2026-05"
+            const months = [...new Set(rows.map(r => {
+                if (r.date && r.date.length >= 7) {
+                    return r.date.substring(0, 7);
+                }
+                return null;
+            }).filter(Boolean))].sort();
+
+            if (months.length > 0) {
+                // Clear existing options except standard structures
+                select.innerHTML = '<option value="">-- Chọn Tháng báo cáo thuế --</option>';
+                
+                months.forEach(m => {
+                    const [year, month] = m.split('-');
+                    const opt = document.createElement('option');
+                    opt.value = m;
+                    opt.textContent = `Tháng ${month} / ${year}`;
+                    select.appendChild(opt);
+                });
+
+                // Set latest detected month active
+                const lastMonth = months[months.length - 1];
+                select.value = lastMonth;
+                handleQuickMonthChange(lastMonth);
+            }
+        }
+
+        // Processes current filters, handles checklists states and sets up active selects
+        function processDataState(initialSetup = false) {
+            const allCustNames = [...new Set(dbRows.map(r => r.customer))].filter(Boolean);
+            
+            availableCustomersList = allCustNames.map(name => {
+                const count = getFilteredTransactionsCount(name);
+                return {
+                    name: name,
+                    validCount: count,
+                    selected: initialSetup ? (count > 0) : false // auto-select on load if has transactional lines
+                };
+            }).sort((a, b) => b.validCount - a.validCount);
+
+            renderCustomerChecklist();
+            rebuildPreviewSelector();
+            renderPreviewSheet();
+        }
+
+        function getFilteredTransactionsCount(customerName) {
+            return getFilteredRowsForCustomer(customerName).length;
+        }
+
+        // Core filter conditions logic
+        function getFilteredRowsForCustomer(customerName) {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            const exKwString = document.getElementById('exclude-keywords').value;
+            
+            const exKeywords = exKwString.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+
+            return dbRows.filter(row => {
+                if (row.customer !== customerName) return false;
+
+                // LOẠI matching
+                const typeNorm = row.type.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+                if (!typeNorm.includes('NHAP') && !typeNorm.includes('MUA')) return false;
+
+                // Dates matching
+                if (startDate && row.date && row.date < startDate) return false;
+                if (endDate && row.date && row.date > endDate) return false;
+
+                // Note exclusions
+                if (exKeywords.length > 0 && row.note) {
+                    const noteNorm = row.note.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+                    for (let kw of exKeywords) {
+                        const kwNorm = kw.normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+                        if (noteNorm.includes(kwNorm)) {
+                            return false; 
+                        }
+                    }
+                }
+                return true;
+            });
+        }
+
+        // Render customer list
+        function renderCustomerChecklist() {
+            const container = document.getElementById('customer-list-container');
+            container.innerHTML = '';
+
+            if (availableCustomersList.length === 0) {
+                container.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs italic">Không tìm thấy khách hàng nào</div>`;
+                return;
+            }
+
+            availableCustomersList.forEach((cust, index) => {
+                const item = document.createElement('div');
+                item.className = "flex items-center justify-between p-3 hover:bg-slate-100/50 transition-colors customer-item-row";
+                item.setAttribute('data-name', cust.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ""));
+                
+                const isChecked = cust.selected ? 'checked' : '';
+                const countBadge = cust.validCount > 0 
+                    ? `<span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">${cust.validCount} dòng mua</span>`
+                    : `<span class="bg-slate-200 text-slate-400 text-[10px] px-2 py-0.5 rounded-full font-normal">0 dòng</span>`;
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <input type="checkbox" id="cust-${index}" ${isChecked} onchange="onCustomerCheckedChange(${index}, this.checked)" class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300">
+                        <label for="cust-${index}" class="text-xs font-semibold text-slate-700 truncate cursor-pointer select-none">
+                            ${cust.name}
+                        </label>
+                    </div>
+                    <div>
+                        ${countBadge}
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+
+            updateSelectedIndicator();
+        }
+
+        // Live list filter
+        function filterChecklistSearch() {
+            const val = document.getElementById('customer-search').value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+            const rows = document.querySelectorAll('.customer-item-row');
+            rows.forEach(row => {
+                const nameAttr = row.getAttribute('data-name');
+                if (nameAttr.includes(val)) {
+                    row.classList.remove('hidden');
+                } else {
+                    row.classList.add('hidden');
+                }
+            });
+        }
+
+        function onCustomerCheckedChange(index, isChecked) {
+            availableCustomersList[index].selected = isChecked;
+            updateSelectedIndicator();
+        }
+
+        function toggleAllCustomers(status) {
+            availableCustomersList.forEach((c, index) => {
+                c.selected = status;
+                const el = document.getElementById(`cust-${index}`);
+                if (el) el.checked = status;
+            });
+            updateSelectedIndicator();
+        }
+
+        function selectActiveCustomersOnly() {
+            availableCustomersList.forEach((c, index) => {
+                // If they have transactional lines, select them. Otherwise, deselect.
+                const hasTransactions = c.validCount > 0;
+                c.selected = hasTransactions;
+                const el = document.getElementById(`cust-${index}`);
+                if (el) el.checked = hasTransactions;
+            });
+            updateSelectedIndicator();
+        }
+
+        function updateSelectedIndicator() {
+            const total = availableCustomersList.length;
+            const selected = availableCustomersList.filter(c => c.selected).length;
+            document.getElementById('selected-count').textContent = `${selected}/${total} đã chọn`;
+        }
+
+        // Sync and rebuild dropdown
+        function rebuildPreviewSelector() {
+            const select = document.getElementById('preview-customer-select');
+            const currentSelectedVal = select.value;
+            select.innerHTML = '';
+
+            const activeCusts = availableCustomersList.filter(c => c.validCount > 0);
+            if (activeCusts.length > 0) {
+                activeCusts.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.name;
+                    opt.textContent = `${c.name} (${c.validCount} dòng)`;
+                    select.appendChild(opt);
+                });
+
+                if (activeCusts.find(c => c.name === currentSelectedVal)) {
+                    activeCustomer = currentSelectedVal;
+                } else {
+                    activeCustomer = activeCusts[0].name;
+                }
+                select.value = activeCustomer;
+            } else {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = '(Không có dữ liệu)';
+                select.appendChild(opt);
+                activeCustomer = null;
+            }
+        }
+
+        function changePreviewCustomer(value) {
+            activeCustomer = value;
+            renderPreviewSheet();
+        }
+
+        function triggerReloadUI() {
+            // Preserving customer selection tags
+            const selectionMapping = {};
+            availableCustomersList.forEach(c => {
+                if (c.selected) selectionMapping[c.name] = true;
+            });
+
+            // Rebuild lists
+            const allCustNames = [...new Set(dbRows.map(r => r.customer))].filter(Boolean);
+            availableCustomersList = allCustNames.map(name => {
+                const count = getFilteredTransactionsCount(name);
+                return {
+                    name: name,
+                    validCount: count,
+                    selected: !!selectionMapping[name]
+                };
+            }).sort((a, b) => b.validCount - a.validCount);
+
+            renderCustomerChecklist();
+            rebuildPreviewSelector();
+            renderPreviewSheet();
+        }
+
+        // Print preview simulator render engine
+        function renderPreviewSheet() {
+            const previewSheetName = document.getElementById('preview-sheet-name');
+            const tbody = document.getElementById('preview-table-body');
+            const previewDateLabel = document.getElementById('preview-date-label');
+            const previewSignDateLabel = document.getElementById('preview-sign-date-label');
+            
+            const totalSumEl = document.getElementById('preview-total-sum');
+            const totalQtyEl = document.getElementById('preview-total-qty');
+            const totalInWordsEl = document.getElementById('preview-total-in-words');
+
+            if (!activeCustomer) {
+                previewSheetName.textContent = "SHEET: KHÔNG CÓ";
+                tbody.innerHTML = `<tr><td colspan="10" class="border border-black p-8 text-center text-gray-400 italic">Không tìm thấy khách hàng nào có giao dịch thỏa mãn khoảng thời gian này. Vui lòng nới rộng lịch báo cáo.</td></tr>`;
+                totalSumEl.textContent = "0";
+                totalQtyEl.textContent = "0";
+                totalInWordsEl.textContent = "Không đồng.";
+                return;
+            }
+
+            previewSheetName.textContent = `SHEET: ${activeCustomer.toUpperCase()}`;
+
+            // Handle date labeling
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            
+            let dateStr = "(Ngày ……. tháng …… năm ..…)";
+            let signDateStr = "Ngày …. tháng …. năm ….....";
+            if (endDate) {
+                const d = new Date(endDate);
+                dateStr = `(Tháng ${String(d.getMonth() + 1).padStart(2, '0')} năm ${d.getFullYear()})`;
+                signDateStr = `Ngày ${String(d.getDate()).padStart(2, '0')} tháng ${String(d.getMonth() + 1).padStart(2, '0')} năm ${d.getFullYear()}`;
+            } else if (startDate) {
+                const d = new Date(startDate);
+                dateStr = `(Tháng ${String(d.getMonth() + 1).padStart(2, '0')} năm ${d.getFullYear()})`;
+                signDateStr = `Ngày ${String(d.getDate()).padStart(2, '0')} tháng ${String(d.getMonth() + 1).padStart(2, '0')} năm ${d.getFullYear()}`;
+            } else {
+                const today = new Date();
+                dateStr = `(Tháng ${String(today.getMonth() + 1).padStart(2, '0')} năm ${today.getFullYear()})`;
+                signDateStr = `Ngày ${String(today.getDate()).padStart(2, '0')} tháng ${String(today.getMonth() + 1).padStart(2, '0')} năm ${today.getFullYear()}`;
+            }
+            
+            previewDateLabel.textContent = dateStr;
+            previewSignDateLabel.textContent = signDateStr;
+
+            const rows = getFilteredRowsForCustomer(activeCustomer);
+            tbody.innerHTML = '';
+
+            let totalSum = 0;
+            let totalQty = 0;
+
+            if (rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="border border-black p-8 text-center text-gray-400 italic">Không có dòng dữ liệu mua hàng phù hợp cho khách hàng này.</td></tr>`;
+            } else {
+                const custInfo = clientDirectory[activeCustomer] || { stk: '', bank: '', phone: '' };
+
+                rows.forEach((row) => {
+                    totalSum += row.total;
+                    totalQty += row.qty;
+
+                    // Chỉ hiển thị ghi chú nếu công tắc showNotes bật (mở lên)
+                    const noteValueToDisplay = showNotes ? row.note : '';
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="border border-black p-1 text-center font-mono">${formatTableDate(row.date)}</td>
+                        <td class="border border-black p-1">${activeCustomer}</td>
+                        <td class="border border-black p-1 text-center text-gray-400 italic">Sóc Trăng</td>
+                        <td class="border border-black p-1 text-center font-mono">${custInfo.stk || ''}</td>
+                        <td class="border border-black p-1 text-center font-mono">${custInfo.phone || ''}</td>
+                        <td class="border border-black p-1">${row.item}</td>
+                        <td class="border border-black p-1 text-right font-mono">${formatNumber(row.qty)}</td>
+                        <td class="border border-black p-1 text-right font-mono">${formatNumber(row.price)}</td>
+                        <td class="border border-black p-1 text-right font-mono font-semibold">${formatNumber(row.total)}</td>
+                        <td class="border border-black p-1 text-center text-gray-500 font-mono text-[10px]">${noteValueToDisplay}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            totalSumEl.textContent = formatNumber(totalSum);
+            totalQtyEl.textContent = formatNumber(totalQty);
+            totalInWordsEl.textContent = docSoTiengViet(totalSum) + ".";
+        }
+
+        function printCurrentReport() {
+            window.print();
+        }
+
+        // EXCEL WRITER AND EXPORTER VIA EXCELJS
+        async function exportExcelReport() {
+            const selectedCustomers = availableCustomersList.filter(c => c.selected && c.validCount > 0);
+            
+            if (selectedCustomers.length === 0) {
+                alert("Không có khách hàng nào được chọn có dữ liệu hợp lệ trong khoảng thời gian này!");
+                return;
+            }
+
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = 'Phế Liệu Trung Hiếu';
+            workbook.lastModifiedBy = 'Hệ thống';
+            
+            const coName = document.getElementById('company-name').value;
+            const coAddress = document.getElementById('company-address').value;
+            const coTax = document.getElementById('company-tax').value;
+            const purchaseAddress = document.getElementById('purchase-address').value;
+
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            let dateTitleStr = "Tháng báo cáo";
+            let signDateStr = "Ngày …. tháng …. năm ….....";
+            if (endDate) {
+                const d = new Date(endDate);
+                dateTitleStr = `Tháng ${String(d.getMonth() + 1).padStart(2, '0')} năm ${d.getFullYear()}`;
+                signDateStr = `Ngày ${String(d.getDate()).padStart(2, '0')} tháng ${String(d.getMonth() + 1).padStart(2, '0')} năm ${d.getFullYear()}`;
+            } else {
+                const d = new Date();
+                dateTitleStr = `Tháng ${String(d.getMonth() + 1).padStart(2, '0')} năm ${d.getFullYear()}`;
+                signDateStr = `Ngày ${String(d.getDate()).padStart(2, '0')} tháng ${String(d.getMonth() + 1).padStart(2, '0')} năm ${d.getFullYear()}`;
+            }
+
+            for (let sc of selectedCustomers) {
+                const rows = getFilteredRowsForCustomer(sc.name);
+                if (rows.length === 0) continue;
+
+                // Max tab length in Excel is 31 characters
+                const sheetName = sc.name.substring(0, 31).replace(/[/*?:[\]]/g, '');
+                const sheet = workbook.addWorksheet(sheetName);
+
+                sheet.columns = [
+                    { key: 'col1', width: 14 },  
+                    { key: 'col2', width: 24 },  
+                    { key: 'col3', width: 13 },  
+                    { key: 'col4', width: 18 },  
+                    { key: 'col5', width: 14 },  
+                    { key: 'col6', width: 22 },  
+                    { key: 'col7', width: 14 },  
+                    { key: 'col8', width: 12 },  
+                    { key: 'col9', width: 18 },  
+                    { key: 'col10', width: 16 }  
+                ];
+
+                const borderThin = {
+                    top: { style: 'thin' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    right: { style: 'thin' }
+                };
+
+                // Form Title
+                sheet.mergeCells('A1:J1');
+                const titleCell = sheet.getCell('A1');
+                titleCell.value = "BẢNG KÊ THU MUA HÀNG HÓA, DỊCH VỤ\nMUA VÀO KHÔNG CÓ HÓA ĐƠN";
+                titleCell.font = { name: 'Times New Roman', size: 14, bold: true };
+                titleCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                sheet.getRow(1).height = 42;
+
+                sheet.mergeCells('A2:J2');
+                const dateCell = sheet.getCell('A2');
+                dateCell.value = `(${dateTitleStr})`;
+                dateCell.font = { name: 'Times New Roman', size: 11, italic: true };
+                dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                sheet.getRow(2).height = 18;
+
+                // Enterprise configurations
+                sheet.mergeCells('A3:F3');
+                const enterpriseCell = sheet.getCell('A3');
+                enterpriseCell.value = `Tên doanh nghiệp: ${coName}`;
+                enterpriseCell.font = { name: 'Times New Roman', size: 11, bold: true };
+
+                sheet.mergeCells('G3:J3');
+                const taxCell = sheet.getCell('G3');
+                taxCell.value = `Mã số thuế: ${coTax}`;
+                taxCell.font = { name: 'Times New Roman', size: 11, bold: true };
+                taxCell.alignment = { horizontal: 'right' };
+
+                sheet.mergeCells('A4:J4');
+                const addressCell = sheet.getCell('A4');
+                addressCell.value = `Địa chỉ: ${coAddress}`;
+                addressCell.font = { name: 'Times New Roman', size: 11 };
+
+                sheet.mergeCells('A5:J5');
+                const buyAddCell = sheet.getCell('A5');
+                buyAddCell.value = `Địa chỉ nơi tổ chức thu mua: ${purchaseAddress}`;
+                buyAddCell.font = { name: 'Times New Roman', size: 11 };
+
+                sheet.mergeCells('A6:J6');
+                const picCell = sheet.getCell('A6');
+                picCell.value = `Người phụ trách thu mua: .....................................................................................................................................`;
+                picCell.font = { name: 'Times New Roman', size: 11 };
+
+                sheet.getRow(3).height = 20;
+                sheet.getRow(4).height = 20;
+                sheet.getRow(5).height = 20;
+                sheet.getRow(6).height = 20;
+
+                // Standard Headers setup
+                sheet.mergeCells('A7:A8');
+                sheet.getCell('A7').value = "Ngày tháng năm mua hàng";
+
+                sheet.mergeCells('B7:E7');
+                sheet.getCell('B7').value = "Người bán";
+                sheet.getCell('B8').value = "Tên người bán";
+                sheet.getCell('C8').value = "Địa chỉ";
+                sheet.getCell('D8').value = "Số CCCD (STK)";
+                sheet.getCell('E8').value = "Số điện thoại";
+
+                sheet.mergeCells('F7:I7');
+                sheet.getCell('F7').value = "Hàng hóa mua vào";
+                sheet.getCell('F8').value = "Tên hàng hóa, dịch vụ";
+                sheet.getCell('G8').value = "Số lượng, trọng lượng";
+                sheet.getCell('H8').value = "Đơn giá";
+                sheet.getCell('I8').value = "Tổng giá thanh toán";
+
+                sheet.mergeCells('J7:J8');
+                sheet.getCell('J7').value = "Ghi chú";
+
+                const headerRows = [sheet.getRow(7), sheet.getRow(8)];
+                headerRows.forEach(row => {
+                    row.height = 25;
+                    row.eachCell((cell) => {
+                        cell.font = { name: 'Times New Roman', size: 11, bold: true };
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFEAEAEA' }
+                        };
+                        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                        cell.border = borderThin;
+                    });
+                });
+
+                // Row numbering index
+                const numRowVals = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+                const r9 = sheet.getRow(9);
+                r9.height = 18;
+                numRowVals.forEach((val, colIdx) => {
+                    const cell = r9.getCell(colIdx + 1);
+                    cell.value = val;
+                    cell.font = { name: 'Times New Roman', size: 10, italic: true };
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFF5F5F5' }
+                    };
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    cell.border = borderThin;
+                });
+
+                // Set records
+                const startRow = 10;
+                let currentRowIdx = startRow;
+                const custInfo = clientDirectory[sc.name] || { stk: '', bank: '', phone: '' };
+
+                rows.forEach(item => {
+                    const row = sheet.getRow(currentRowIdx);
+                    row.height = 22;
+
+                    row.getCell(1).value = formatTableDate(item.date);
+                    row.getCell(2).value = sc.name;
+                    row.getCell(3).value = "Sóc Trăng";
+                    row.getCell(4).value = custInfo.stk || '';
+                    row.getCell(5).value = custInfo.phone || '';
+                    row.getCell(6).value = item.item;
+                    
+                    row.getCell(7).value = item.qty;
+                    row.getCell(7).numFmt = '#,##0';
+                    
+                    row.getCell(8).value = item.price;
+                    row.getCell(8).numFmt = '#,##0';
+
+                    // Sử dụng công thức tính toán tự động
+                    row.getCell(9).value = { formula: `=G${currentRowIdx}*H${currentRowIdx}` };
+                    row.getCell(9).numFmt = '#,##0';
+
+                    // ĐÚNG YÊU CẦU: Xuất ghi chú chỉ khi showNotes hoạt động, ngược lại để ô trống
+                    row.getCell(10).value = showNotes ? (item.note || '') : '';
+
+                    row.eachCell((cell, colIndex) => {
+                        cell.font = { name: 'Times New Roman', size: 11 };
+                        cell.border = borderThin;
+                        
+                        if ([1, 3, 4, 5].includes(colIndex)) {
+                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                        } else if ([7, 8, 9].includes(colIndex)) {
+                            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                        } else {
+                            cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                        }
+                    });
+
+                    currentRowIdx++;
+                });
+
+                // Summary calculations block row
+                const totalRowIndex = currentRowIdx;
+                const totalRow = sheet.getRow(totalRowIndex);
+                totalRow.height = 24;
+
+                sheet.mergeCells(`A${totalRowIndex}:F${totalRowIndex}`);
+                const totalLabel = totalRow.getCell(1);
+                totalLabel.value = "Tổng giá trị hàng hóa mua vào:";
+                totalLabel.font = { name: 'Times New Roman', size: 11, bold: true };
+                totalLabel.alignment = { horizontal: 'center', vertical: 'middle' };
+
+                // Quantity Formula
+                const qtySumCell = totalRow.getCell(7);
+                qtySumCell.value = { formula: `=SUM(G${startRow}:G${totalRowIndex-1})` };
+                qtySumCell.font = { name: 'Times New Roman', size: 11, bold: true };
+                qtySumCell.numFmt = '#,##0';
+                qtySumCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+                // Grey out price cell on sum row
+                totalRow.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+
+                // Currency Formula
+                const totalSumCell = totalRow.getCell(9);
+                totalSumCell.value = { formula: `=SUM(I${startRow}:I${totalRowIndex-1})` };
+                totalSumCell.font = { name: 'Times New Roman', size: 11, bold: true };
+                totalSumCell.numFmt = '#,##0';
+                totalSumCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+                for (let col = 1; col <= 10; col++) {
+                    const cell = totalRow.getCell(col);
+                    cell.border = borderThin;
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFEAEAEA' }
+                    };
+                }
+
+                // Translated Words row
+                const wordsRowIndex = totalRowIndex + 1;
+                const wordsRow = sheet.getRow(wordsRowIndex);
+                wordsRow.height = 26;
+                sheet.mergeCells(`A${wordsRowIndex}:J${wordsRowIndex}`);
+                
+                const sumTotal = rows.reduce((acc, r) => acc + r.total, 0);
+                const wordsCell = wordsRow.getCell(1);
+                wordsCell.value = `Bằng chữ: ${docSoTiengViet(sumTotal)}.`;
+                wordsCell.font = { name: 'Times New Roman', size: 11, bold: true, italic: true };
+                wordsCell.alignment = { horizontal: 'left', vertical: 'middle' };
+                for (let col = 1; col <= 10; col++) {
+                    wordsRow.getCell(col).border = borderThin;
+                }
+
+                // Append footnotes
+                const guideRowIdx = wordsRowIndex + 2;
+                sheet.mergeCells(`A${guideRowIdx}:J${guideRowIdx}`);
+                const guideCell = sheet.getCell(`A${guideRowIdx}`);
+                guideCell.value = "Ghi chú:\n- Căn cứ vào số thực tế các hàng hóa, dịch vụ mà doanh nghiệp mua của người bán không có hóa đơn, lập bảng kê khai theo thứ tự thời gian mua, doanh nghiệp ghi đầy đủ các chỉ tiêu trên bảng kê, tổng hợp bảng kê hàng tháng.\n- Đối với doanh nghiệp có tổ chức các trạm thu mua ở nhiều nơi thì từng trạm thu mua phải lập từng bảng kê riêng. Doanh nghiệp lập bảng kê tổng hợp chung của các trạm.";
+                guideCell.font = { name: 'Times New Roman', size: 9.5, italic: true, color: { argb: 'FF555555' } };
+                guideCell.alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
+                sheet.getRow(guideRowIdx).height = 55;
+
+                // Sign-off boxes
+                const sigDateRowIdx = guideRowIdx + 2;
+                const sigTitleRowIdx = sigDateRowIdx + 1;
+                const sigDescRowIdx = sigTitleRowIdx + 1;
+                const sigSpaceRowIdx = sigDescRowIdx + 4;
+
+                sheet.mergeCells(`G${sigDateRowIdx}:I${sigDateRowIdx}`);
+                const sigDate = sheet.getCell(`G${sigDateRowIdx}`);
+                sigDate.value = signDateStr;
+                sigDate.font = { name: 'Times New Roman', size: 11, italic: true };
+                sigDate.alignment = { horizontal: 'center' };
+
+                // Signature titles
+                sheet.mergeCells(`B${sigTitleRowIdx}:D${sigTitleRowIdx}`);
+                const sigLập = sheet.getCell(`B${sigTitleRowIdx}`);
+                sigLập.value = "Người lập bảng kê";
+                sigLập.font = { name: 'Times New Roman', size: 11, bold: true };
+                sigLập.alignment = { horizontal: 'center' };
+
+                sheet.mergeCells(`G${sigTitleRowIdx}:I${sigTitleRowIdx}`);
+                const sigGD = sheet.getCell(`G${sigTitleRowIdx}`);
+                sigGD.value = "Giám đốc doanh nghiệp";
+                sigGD.font = { name: 'Times New Roman', size: 11, bold: true };
+                sigGD.alignment = { horizontal: 'center' };
+
+                // Subtitles
+                sheet.mergeCells(`B${sigDescRowIdx}:D${sigDescRowIdx}`);
+                const sigLậpDesc = sheet.getCell(`B${sigDescRowIdx}`);
+                sigLậpDesc.value = "(Ký, ghi rõ họ tên)";
+                sigLậpDesc.font = { name: 'Times New Roman', size: 10, italic: true };
+                sigLậpDesc.alignment = { horizontal: 'center' };
+
+                sheet.mergeCells(`G${sigDescRowIdx}:I${sigDescRowIdx}`);
+                const sigGDDesc = sheet.getCell(`G${sigDescRowIdx}`);
+                sigGDDesc.value = "(Ký tên, đóng dấu)";
+                sigGDDesc.font = { name: 'Times New Roman', size: 10, italic: true };
+                sigGDDesc.alignment = { horizontal: 'center' };
+
+                // Bottom enterprise title
+                sheet.mergeCells(`G${sigSpaceRowIdx}:I${sigSpaceRowIdx}`);
+                const sigGDFooter = sheet.getCell(`G${sigSpaceRowIdx}`);
+                sigGDFooter.value = coName;
+                sigGDFooter.font = { name: 'Times New Roman', size: 11, bold: true };
+                sigGDFooter.alignment = { horizontal: 'center' };
+            }
+
+            // Write workbook binary buffer
+            try {
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                
+                let rangeLabel = "All_Time";
+                if (startDate && endDate) rangeLabel = `${startDate}_to_${endDate}`;
+                else if (endDate) rangeLabel = `Thang_${endDate.substring(0,7)}`;
+                
+                a.download = `BangKeThue_PheLieuTrungHieu_${rangeLabel}.xlsx`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } catch (err) {
+                console.error(err);
+                alert("Lỗi: Không thể khởi chạy tiến trình xuất Excel.");
+            }
+        }
+
+        // --- Core Helpers ---
+
+        function formatTableDate(dateString) {
+            if (!dateString) return '';
+            const parts = dateString.split('-');
+            if (parts.length === 3) {
+                return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+            return dateString;
+        }
+
+        function formatNumber(num) {
+            if (num === null || num === undefined || isNaN(num)) return '0';
+            return Math.round(num).toLocaleString('vi-VN');
+        }
+
+        function docSoTiengViet(number) {
+            if (number === 0) return "Không đồng";
+            const units = ["", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+            const places = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"];
+            
+            function readThreeDigits(num, showZeroTens) {
+                let res = "";
+                let h = Math.floor(num / 100);
+                let t = Math.floor((num % 100) / 10);
+                let u = num % 10;
+                
+                if (h > 0) {
+                    res += units[h] + " trăm ";
+                } else if (showZeroTens) {
+                    res += "không trăm ";
+                }
+                
+                if (t > 1) {
+                    res += units[t] + " mươi ";
+                } else if (t === 1) {
+                    res += "mười ";
+                } else if (t === 0 && u > 0 && (h > 0 || showZeroTens)) {
+                    res += "lẻ ";
+                }
+                
+                if (u === 1 && t > 1) {
+                    res += "mốt";
+                } else if (u === 5 && t > 0) {
+                    res += "lăm";
+                } else if (u > 0) {
+                    res += units[u];
+                }
+                
+                return res.trim();
+            }
+            
+            let str = Math.floor(number).toString();
+            let groups = [];
+            while (str.length > 0) {
+                groups.push(parseInt(str.slice(-3)));
+                str = str.slice(0, -3);
+            }
+            
+            let words = "";
+            for (let i = groups.length - 1; i >= 0; i--) {
+                let g = groups[i];
+                if (g > 0) {
+                    let showZero = (i < groups.length - 1);
+                    let gStr = readThreeDigits(g, showZero);
+                    words += gStr + " " + places[i] + " ";
+                }
+            }
+            
+            words = words.trim();
+            if (words === "") return "Không đồng";
+            
+            words = words.charAt(0).toUpperCase() + words.slice(1) + " đồng";
+            words = words.replace(/\s+/g, " ");
+            return words;
+        }
+    </script>
+</body>
+</html>
+
+```
+
